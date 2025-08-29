@@ -1,4 +1,5 @@
 <?php
+
 /**
  * FedEx Chile Domestic API Client (TEST)
  * PHP 7.4+
@@ -105,7 +106,11 @@ class FedExChileApi
         ]);
 
         $raw = curl_exec($ch);
-        if ($raw === false) { $err = curl_error($ch); curl_close($ch); throw new RuntimeException('Error cURL createShipment: ' . $err); }
+        if ($raw === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            throw new RuntimeException('Error cURL createShipment: ' . $err);
+        }
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
@@ -139,7 +144,11 @@ class FedExChileApi
         ]);
 
         $raw = curl_exec($ch);
-        if ($raw === false) { $err = curl_error($ch); curl_close($ch); throw new RuntimeException('Error cURL cancelShipment: ' . $err); }
+        if ($raw === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            throw new RuntimeException('Error cURL cancelShipment: ' . $err);
+        }
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
@@ -150,7 +159,8 @@ class FedExChileApi
         return $data;
     }
 
-    private function isValidUsDate(string $date): bool {
+    private function isValidUsDate(string $date): bool
+    {
         $p = explode('/', $date);
         if (count($p) !== 3) return false;
         [$mm, $dd, $yyyy] = $p;
@@ -175,54 +185,133 @@ $client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD);
 
 // Payload con 1 bulto, payer SENDER 615612898 y labelType "ONLY_DATA"
 $payload = [
-  "credential" => $CREDENTIAL,
-  'shipper' => [
-    'contact' => [
-      'personName'  => 'Sils Group',
-      'phoneNumber' => '56931987281',
-      'companyName' => 'Sils Group',
-      'email'       => 'contacto@sils.group',
-      'vatNumber'   => '77057527-3',
+    "credential" => $CREDENTIAL,
+    'shipper' => [
+        'contact' => [
+            'personName'  => 'Sils Group',
+            'phoneNumber' => '+56931987281',
+            'companyName' => 'Sils Group',
+            'email'       => 'contacto@sils.group',
+            'vatNumber'   => '77057527-3',
+        ],
+        'address' => [
+            'city' => 'Pudahuel',
+            'stateOrProvinceCode' => 'CL',
+            'postalCode' => '9020000', // '9061529',
+            'countryCode' => 'CL',
+            'residential' => false,
+            'streetLine1' => 'Puerto Santiago 259',
+            'streetLine2' => '',
+            'streetLine3' => ''
+        ],
     ],
-    'address' => [
-      'city' => 'Pudahuel',
-      'postalCode' => '9061529',
-      'countryCode' => 'CL',
-    //   'stateOrProvinceCode' => 'CL',    // opcional
-      'residential' => false,
-      'streetLine1' => 'Puerto Santiago 259'
+    'recipient' => [
+        'contact' => [
+            'personName'  => 'Carlos Jordan',
+            'phoneNumber' => '+56959495349',
+            'companyName' => 'Amo mi Negocio',
+            'email'       => 'contacto@amominegocio.cl',
+            'vatNumber'   => '77639373-8',
+        ],
+        'address' => [
+            'city' => 'La Florida',
+            'stateOrProvinceCode' => 'CL',
+            'postalCode' => '8240000', //'8260343',
+            'countryCode' => 'CL',
+            'residential' => false,
+            'streetLine1' => 'Las Acacias 7800',
+            'streetLine2' => '',
+            'streetLine3' => ''
+        ],
     ],
-  ],
-  'recipient' => [
-    'contact' => [
-      'personName'  => 'Carlos Jordan',
-      'phoneNumber' => '56959495349',
-      'companyName' => 'Amo mi Negocio',
-      'email'       => 'contacto@amominegocio.cl',
-      'vatNumber'   => '77639373-8',
+    "shipDate" => "08/28/2025",
+    "serviceType" => "FEDEX_PRIORITY",
+    "packagingType" => "YOUR_PACKAGING",
+    "shippingChargesPayment" => [
+        "paymentType" => "SENDER",
+        "accountNumber" => "615612898"
     ],
-    'address' => [
-      'city' => 'La Florida',
-      'postalCode' => '8260343',
-      'countryCode' => 'CL',
-    //   'stateOrProvinceCode' => 'CL',    // opcional
-      'residential' => false,
-      'streetLine1' => 'Las Acacias 7800'
+    'labelType' => 'ONLY_DATA',
+    "requestedPackageLineItems" => [
+        [
+            "itemDescription" => "82850194-89994- 1/1",
+            "weight" => [
+                "value" => 1,
+                "units" => "KG"
+            ],
+            "dimensions" => [
+                "length" => 1,
+                "width" => 1,
+                "height" => 1,
+                "units" => "CM"
+            ]
+        ],
+        [
+            "itemDescription" => "82850222-90022- 1/1",
+            "weight" => [
+                "value" => 1,
+                "units" => "KG"
+            ],
+            "dimensions" => [
+                "length" => 1,
+                "width" => 1,
+                "height" => 1,
+                "units" => "CM"
+            ]
+        ]
     ],
-  ],
-  'labelType' => 'ONLY_DATA',
-  'clearanceDetail' => [
-    'documentContent' => 'NON_DOCUMENT',
-    'commodities' => [[
-      'description' => 'Mercadería',
-      'countryOfManufacture' => 'CL',
-      'numberOfPieces' => 1,
-      'weight' => ['value' => 0.0, 'units' => 'KG'],
-      'quantity' => 1, 'quantityUnits' => 'EA',
-      'unitPrice' => ['amount' => 1000.0, 'currency' => 'CLP'], // en gùia 'CHP'
-    ]],
-  ],
-  'insuranceValue' => ['amount' => 0.0, 'currency' => 'CLP'],   // en gùia 'CHP'
+    "specialServicesRequested" => [
+        "specialServiceTypes" => [
+            "RETURN_DOCUMENTS" // TAG QUE INDICA QUE SE INCLUYE DOCUMENTACIÓN LA REFERENCIA DEL DOCUMENTO A RETORNAR
+        ],
+        "documentsToReturn" => [
+            [
+                "docType" => "CI",   // TIPO DE DOCUMENTO A RETORNAR
+                "docId"   => "89994" // IDENTIFICADOR DEL DOCUMENTO A RETORNAR (REFERENCIA)
+            ]
+        ],
+        "customerDocsReference" => "89994"
+    ],
+    "clearanceDetail" => [
+        "documentContent" => "NON_DOCUMENT", // TIPO DE CONTENIDO, ENVIOS INTRA CHILE PUEDEN SER "NON_DOCUMENT" O "DOCUMENT"
+        "commodities" => [
+            [
+                "description" => "some packs",
+                "countryOfManufacture" => "CL",
+                "numberOfPieces" => 1,
+                "weight" => [
+                    "value" => 0.0,
+                    "units" => "KG"
+                ],
+                "quantity" => 0,
+                "quantityUnits" => "PCS",
+                "unitPrice" => [
+                    "amount" => 0.0,
+                    "currency" => "CHP"
+                ]
+            ]
+        ]
+    ],
+    // LAS REFERENCIAS SON CAMPOS LIBRES QUE SE PUEDEN UTILIZAR PARA DIFERENTES FINES COMO SEGUIMIENTO, IDENTIFICACIÓN, ETC.
+    "references" => [
+        [
+            "customerReferenceType" => "CUSTOMER_REFERENCE", // REFERENCIA CLIENTE
+            "value" => "89994"
+        ],
+        [
+            "customerReferenceType" => "PURCHACE_ORDER", // ORDEN DE COMPRA
+            "value" => "82850194"
+        ],
+        [
+            "customerReferenceType" => "INVOICE", // FACTURA
+            "value" => "89994"
+        ]
+    ],
+    // VALOR DEL SEGURO, SI NO SE REQUIERE, DEJAR EN 0
+    "insuranceValue" => [
+        "amount" => 1146264,
+        "currency" => "CHP"
+    ]
 ];
 
 try {
