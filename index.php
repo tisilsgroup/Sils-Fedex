@@ -161,9 +161,9 @@ class FedExChileApi
 
     private function isValidUsDate(string $date): bool
     {
-        $p = explode('/', $date);
+        $p = explode('-', $date);
         if (count($p) !== 3) return false;
-        [$mm, $dd, $yyyy] = $p;
+        [$dd, $mm, $yyyy] = $p;
         if (strlen($mm) !== 2 || strlen($dd) !== 2 || strlen($yyyy) !== 4) return false;
         return checkdate((int)$mm, (int)$dd, (int)$yyyy);
     }
@@ -197,7 +197,7 @@ $payload = [
         'address' => [
             'city' => 'Pudahuel',
             'stateOrProvinceCode' => 'CL',
-            'postalCode' => '9020000', // '9061529',
+            'postalCode' => '9020',// '9020000', // '9061529',
             'countryCode' => 'CL',
             'residential' => false,
             'streetLine1' => 'Puerto Santiago 259',
@@ -216,7 +216,7 @@ $payload = [
         'address' => [
             'city' => 'La Florida',
             'stateOrProvinceCode' => 'CL',
-            'postalCode' => '8240000', //'8260343',
+            'postalCode' => '8240', // '8240000', //'8260343',
             'countryCode' => 'CL',
             'residential' => false,
             'streetLine1' => 'Las Acacias 7800',
@@ -224,7 +224,7 @@ $payload = [
             'streetLine3' => ''
         ],
     ],
-    "shipDate" => "08/28/2025",
+    "shipDate" => "08-08-2025",
     "serviceType" => "FEDEX_PRIORITY",
     "packagingType" => "YOUR_PACKAGING",
     "shippingChargesPayment" => [
@@ -234,12 +234,12 @@ $payload = [
     'labelType' => 'ONLY_DATA',
     "requestedPackageLineItems" => [
         [
-            "itemDescription" => "82850194-89994- 1/1",
-            "weight" => [
-                "value" => 1,
-                "units" => "KG"
+            "itemDescription" => "82850194-89994- 1/1", // optional
+            "weight" => [ // required
+                "value" => 1, // required
+                "units" => "KG" // required
             ],
-            "dimensions" => [
+            "dimensions" => [ // optional
                 "length" => 1,
                 "width" => 1,
                 "height" => 1,
