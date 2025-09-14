@@ -1,21 +1,38 @@
 <?php
 
 /**
- * FedEx Chile Domestic API Client (TEST)
- * PHP 7.4+
+ * FedEx Chile Domestic API Client
  *
  * - OAuth2 client_credentials (Basic + multipart/form-data)
  * - createShipment / cancelShipment
  * - Soporta labelType "ONLY_DATA" (según instrucción complementaria)
  */
+
+$TEST_USERNAME = 'oY3jhNDORE62o2zPnwnW';
+$TEST_PASSWORD = 'l6uCn7Ll96lyot4T6aqQ3VLlq';
+
+// Tus credenciales de envío (para el objeto credential)
+$CREDENTIAL = [
+    "accountNumber"            => "615612898",
+    "meterNumber"              => "256549685",
+    "wskeyUserCredential"      => "ICA5VOTfC6F74Dlt",
+    "wspasswordUserCredential" => "5woctSZ7SjTeV7gBPVPgHZklu"
+];
+
+$OPTIONS = [
+    "oauthUrl"            => "https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token",
+    "createShipmentUrl"   => "https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment",
+    "cancelShipmentUrl"   => "https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment"
+];
+
 class FedExChileApi
 {
     private string $oauthUrl;
     private string $createShipmentUrl;
     private string $cancelShipmentUrl;
 
-    private string $clientId;     // USERNAME (test)
-    private string $clientSecret; // PASSWORD (test)
+    private string $clientId;
+    private string $clientSecret;
 
     private ?string $accessToken = null;
     private int $accessTokenExpiresAt = 0;
@@ -25,9 +42,14 @@ class FedExChileApi
 
     public function __construct(string $clientId, string $clientSecret, array $options = [])
     {
-        $this->oauthUrl          = $options['oauthUrl']          ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token';
-        $this->createShipmentUrl = $options['createShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment';
-        $this->cancelShipmentUrl = $options['cancelShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment';
+        print_r($options);
+        // $this->oauthUrl          = $options['oauthUrl']          ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token';
+        // $this->createShipmentUrl = $options['createShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment';
+        // $this->cancelShipmentUrl = $options['cancelShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment';
+        
+        $this->oauthUrl          = $options['oauthUrl'];
+        $this->createShipmentUrl = $options['createShipmentUrl'];
+        $this->cancelShipmentUrl = $options['cancelShipmentUrl'];
 
         $this->clientId     = $clientId;
         $this->clientSecret = $clientSecret;
@@ -80,7 +102,6 @@ class FedExChileApi
 
     public function createShipment(array $payload): array
     {
-        // shipDate debe ser MM/dd/yyyy
         if (isset($payload['shipDate']) && !$this->isValidUsDate($payload['shipDate'])) {
             throw new InvalidArgumentException('shipDate debe tener formato MM/dd/yyyy');
         }
@@ -169,24 +190,11 @@ class FedExChileApi
     }
 }
 
-// Credenciales OAuth (TEST) del doc
-$TEST_USERNAME = 'oY3jhNDORE62o2zPnwnW';
-$TEST_PASSWORD = 'l6uCn7Ll96lyot4T6aqQ3VLlq';
+$client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD, $OPTIONS);
 
-// Tus credenciales de envío (para el objeto credential)
-$CREDENTIAL = [
-    "accountNumber"            => "615612898",
-    "meterNumber"              => "256549685",
-    "wskeyUserCredential"      => "ICA5VOTfC6F74Dlt",
-    "wspasswordUserCredential" => "5woctSZ7SjTeV7gBPVPgHZklu"
-];
-
-$client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD);
-
-// Payload con 1 bulto, payer SENDER 615612898 y labelType "ONLY_DATA"
 $payload = [
     "credential" => $CREDENTIAL,
-    'shipper' => [
+    'shipper' => [ // BD
         'contact' => [
             'personName'  => 'Sils Group',
             'phoneNumber' => '+56931987281',
@@ -205,7 +213,7 @@ $payload = [
             'streetLine3' => ''
         ],
     ],
-    'recipient' => [
+    'recipient' => [ // BD
         'contact' => [
             'personName'  => 'Carlos Jordan',
             'phoneNumber' => '+56959495349',
@@ -229,10 +237,10 @@ $payload = [
     "packagingType" => "YOUR_PACKAGING",
     "shippingChargesPayment" => [
         "paymentType" => "SENDER",
-        "accountNumber" => "615612898"
+        "accountNumber" => "615612898" // BD
     ],
     'labelType' => 'ONLY_DATA',
-    "requestedPackageLineItems" => [
+    "requestedPackageLineItems" => [ // BD - SON LOS BULTOS A SER ENVIADOS
         [
             "itemDescription" => "82850194-89994- 1/1", // optional
             "weight" => [ // required
@@ -261,52 +269,46 @@ $payload = [
         ]
     ],
     "specialServicesRequested" => [
-        "specialServiceTypes" => [
-            "RETURN_DOCUMENTS" // TAG QUE INDICA QUE SE INCLUYE DOCUMENTACIÓN LA REFERENCIA DEL DOCUMENTO A RETORNAR
-        ],
+        "specialServiceTypes" => ["PSDR"],
         "documentsToReturn" => [
-            [
-                "docType" => "CI",   // TIPO DE DOCUMENTO A RETORNAR
-                "docId"   => "89994" // IDENTIFICADOR DEL DOCUMENTO A RETORNAR (REFERENCIA)
-            ]
         ],
-        "customerDocsReference" => "89994"
+        "customerDocsReference" => "510100027"
     ],
     "clearanceDetail" => [
-        "documentContent" => "NON_DOCUMENT", // TIPO DE CONTENIDO, ENVIOS INTRA CHILE PUEDEN SER "NON_DOCUMENT" O "DOCUMENT"
-        "commodities" => [
-            [
-                "description" => "some packs",
-                "countryOfManufacture" => "CL",
-                "numberOfPieces" => 1,
-                "weight" => [
-                    "value" => 0.0,
-                    "units" => "KG"
-                ],
-                "quantity" => 0,
-                "quantityUnits" => "PCS",
-                "unitPrice" => [
-                    "amount" => 0.0,
-                    "currency" => "CHP"
-                ]
-            ]
-        ]
+        "documentContent" => "NON_DOCUMENT"//, // TIPO DE CONTENIDO, ENVIOS INTRA CHILE PUEDEN SER "NON_DOCUMENT" O "DOCUMENT"
+        // "commodities" => [
+        //     [
+        //         "description" => "some packs",
+        //         "countryOfManufacture" => "CL",
+        //         "numberOfPieces" => 1,
+        //         "weight" => [
+        //             "value" => 0.0,
+        //             "units" => "KG"
+        //         ],
+        //         "quantity" => 0,
+        //         "quantityUnits" => "PCS",
+        //         "unitPrice" => [
+        //             "amount" => 0.0,
+        //             "currency" => "CHP"
+        //         ]
+        //     ]
+        // ]
     ],
     // LAS REFERENCIAS SON CAMPOS LIBRES QUE SE PUEDEN UTILIZAR PARA DIFERENTES FINES COMO SEGUIMIENTO, IDENTIFICACIÓN, ETC.
-    "references" => [
-        [
-            "customerReferenceType" => "CUSTOMER_REFERENCE", // REFERENCIA CLIENTE
-            "value" => "89994"
-        ],
-        [
-            "customerReferenceType" => "PURCHACE_ORDER", // ORDEN DE COMPRA
-            "value" => "82850194"
-        ],
-        [
-            "customerReferenceType" => "INVOICE", // FACTURA
-            "value" => "89994"
-        ]
-    ],
+    // "references" => [
+    //     [
+    //         "customerReferenceType" => "CUSTOMER_REFERENCE", // REFERENCIA CLIENTE
+    //         "value" => "89994"
+    //     ],
+    //     [
+    //         "customerReferenceType" => "PURCHACE_ORDER", // ORDEN DE COMPRA
+    //         "value" => "82850194"
+    //     ],
+    //     [
+    //         "customerReferenceType" => "INVOICE", // FACTURA
+    //         "value" => "89994"
+    //     ]
+    // ],
     // VALOR DEL SEGURO, SI NO SE REQUIERE, DEJAR EN 0
     "insuranceValue" => [
         "amount" => 1146264,
@@ -316,7 +318,14 @@ $payload = [
 
 try {
     $res = $client->createShipment($payload);
-    echo "Envío creado OK\n";
+    
+    $resJson = json_encode($res, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    
+    echo "<br><br>Respuesta JSON:<br><pre>" . htmlspecialchars($resJson) . "</pre>";
+    // echo "Respuesta\n\n\n\n";
+    // print_r($res);
+    // echo "Envío creado OK\n\n\n\n";
+
     // === Ejemplo de lectura de datos esperados (nombres de campos pueden variar según backend) ===
     $master = $res['masterTrackingNumber'] ?? $res['master']['trackingNumber'] ?? null; // Guía máster / Guía de bulto
     $pouch  = $res['pouchId'] ?? $res['pouch']['id'] ?? null;                           // Pouch ID
@@ -324,10 +333,10 @@ try {
     $returnTag   = $res['returnDocuments']['returnTag']   ?? null; // ej. base64/ZPL/PNG según implementación
     $returnLabel = $res['returnDocuments']['returnLabel'] ?? null;
 
-    echo "Master/Guía de bulto: " . ($master ?: 'N/D') . PHP_EOL;
-    echo "Pouch ID: " . ($pouch ?: 'N/D') . PHP_EOL;
-    echo "Return TAG presente: " . (empty($returnTag) ? 'No' : 'Sí') . PHP_EOL;
-    echo "Return LABEL DOCS presente: " . (empty($returnLabel) ? 'No' : 'Sí') . PHP_EOL;
+    // echo "Master/Guía de bulto: " . ($master ?: 'N/D') . PHP_EOL;
+    // echo "Pouch ID: " . ($pouch ?: 'N/D') . PHP_EOL;
+    // echo "Return TAG presente: " . (empty($returnTag) ? 'No' : 'Sí') . PHP_EOL;
+    // echo "Return LABEL DOCS presente: " . (empty($returnLabel) ? 'No' : 'Sí') . PHP_EOL;
 
     // Si quisieras persistir etiquetas de retorno cuando existen:
     // if (!empty($returnTag))   file_put_contents('return_tag.bin', base64_decode($returnTag));
