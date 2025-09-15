@@ -24,11 +24,6 @@ class FedExChileApi
 
     public function __construct(string $clientId, string $clientSecret, array $options = [])
     {
-        print_r($options);
-        // $this->oauthUrl          = $options['oauthUrl']          ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token';
-        // $this->createShipmentUrl = $options['createShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment';
-        // $this->cancelShipmentUrl = $options['cancelShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment';
-        
         $this->oauthUrl          = $options['oauthUrl'];
         $this->createShipmentUrl = $options['createShipmentUrl'];
         $this->cancelShipmentUrl = $options['cancelShipmentUrl'];
@@ -84,6 +79,11 @@ class FedExChileApi
 
     public function createShipment(array $payload): array
     {
+        // echo '<br>';
+        // echo '<br>createShipment payload: ';
+        // print_r($payload);
+        // echo '<br>';
+        echo '<br>';
         if (isset($payload['shipDate']) && !$this->isValidUsDate($payload['shipDate'])) {
             throw new InvalidArgumentException('shipDate debe tener formato MM/dd/yyyy');
         }
@@ -94,7 +94,7 @@ class FedExChileApi
         }
 
         $token = $this->getAccessToken();
-        echo "Using Access Token: " . $token . "...\n";
+        // echo "Using Access Token: " . $token . "...\n";
         $ch = curl_init($this->createShipmentUrl);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,

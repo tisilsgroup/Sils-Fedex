@@ -55,10 +55,10 @@ foreach ($fedexInf as $row) {
     $recipient = [
         'contact' => [
             'personName'  => strOrEmpty($row['destinatarioContacto'] ?? $row['destinatarioNombre']),
-            'phoneNumber' => onlyDigitsAndPlus($row['destinatarioTelefono'] ?? '+56912345678'),
-            'companyName' => strOrEmpty($row['destinatarioNombre'] ?? 'Destinatario'),
-            'email'       => strOrEmpty($row['destinatarioEmail'] ?? 'Email@gmail.com'),
-            'vatNumber'   => strOrEmpty($row['ctacli'] ?? '455'),
+            'phoneNumber' => onlyDigitsAndPlus($row['destinatarioTelefono'] ?? ''),
+            'companyName' => strOrEmpty($row['destinatarioNombre'] ?? ''),
+            'email'       => strOrEmpty($row['destinatarioEmail'] ?? ''),
+            'vatNumber'   => strOrEmpty($row['ctacli'] ?? ''),
         ],
         'address' => [
             'city'                => strOrEmpty($row['comuna'] ?? ''),
@@ -159,12 +159,6 @@ foreach ($fedexInf as $row) {
 }
 
 try {
-    // $results = [];
-    // foreach ($payloads as $payload) {
-    //     $res = $client->createShipment($payload);
-    //     $results[] = $res;
-    // }
-    // $res = $results;
     $res = $client->createShipment($payload);
     
     $resJson = json_encode($res, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
