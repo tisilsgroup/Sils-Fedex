@@ -1,175 +1,12 @@
 <?php
 
 /**
- * FedEx Chile Domestic API Client (TEST)
- * PHP 7.4+
+ * FedEx Chile Domestic API Client
  *
  * - OAuth2 client_credentials (Basic + multipart/form-data)
  * - createShipment / cancelShipment
- * - Soporta labelType "ONLY_DATA" (según instrucción complementaria)
  */
-class FedExChileApi
-{
-    private string $oauthUrl;
-    private string $createShipmentUrl;
-    private string $cancelShipmentUrl;
 
-    private string $clientId;     // USERNAME (test)
-    private string $clientSecret; // PASSWORD (test)
-
-    private ?string $accessToken = null;
-    private int $accessTokenExpiresAt = 0;
-
-    private int $timeoutSeconds = 25;
-    private int $connectTimeoutSeconds = 10;
-
-    public function __construct(string $clientId, string $clientSecret, array $options = [])
-    {
-        $this->oauthUrl          = $options['oauthUrl']          ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token';
-        $this->createShipmentUrl = $options['createShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment';
-        $this->cancelShipmentUrl = $options['cancelShipmentUrl'] ?? 'https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment';
-
-        $this->clientId     = $clientId;
-        $this->clientSecret = $clientSecret;
-
-        $this->timeoutSeconds         = (int)($options['timeout'] ?? $this->timeoutSeconds);
-        $this->connectTimeoutSeconds  = (int)($options['connect_timeout'] ?? $this->connectTimeoutSeconds);
-    }
-
-    private function getAccessToken(): string
-    {
-        $now = time();
-        if ($this->accessToken && $now < $this->accessTokenExpiresAt - 30) {
-            return $this->accessToken;
-        }
-
-        $ch = curl_init($this->oauthUrl);
-        $basic = base64_encode($this->clientId . ':' . $this->clientSecret);
-
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => [
-                'Authorization: Basic ' . $basic,
-                'Content-Type: multipart/form-data',
-            ],
-            CURLOPT_POSTFIELDS     => ['grant_type' => 'client_credentials'],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->connectTimeoutSeconds,
-        ]);
-
-        $raw = curl_exec($ch);
-        if ($raw === false) {
-            $err = curl_error($ch);
-            curl_close($ch);
-            throw new RuntimeException('Error cURL OAuth: ' . $err);
-        }
-        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        $data = json_decode($raw, true);
-        if ($http >= 400 || !is_array($data) || !isset($data['access_token'], $data['expires_in'])) {
-            throw new RuntimeException('HTTP ' . $http . ' OAuth response: ' . $raw);
-        }
-
-        $this->accessToken = $data['access_token'];
-        $this->accessTokenExpiresAt = time() + max(1, (int)$data['expires_in']);
-
-        return $this->accessToken;
-    }
-
-    public function createShipment(array $payload): array
-    {
-        // shipDate debe ser MM/dd/yyyy
-        if (isset($payload['shipDate']) && !$this->isValidUsDate($payload['shipDate'])) {
-            throw new InvalidArgumentException('shipDate debe tener formato MM/dd/yyyy');
-        }
-
-        // Soporte "ONLY_DATA": lo dejamos pasar tal cual — backend responderá buffer vacío en master/bultos.
-        if (isset($payload['labelType']) && !in_array($payload['labelType'], ['ZPL', 'PNG', 'ONLY_DATA'], true)) {
-            throw new InvalidArgumentException('labelType inválido (use ZPL, PNG u ONLY_DATA)');
-        }
-
-        $token = $this->getAccessToken();
-        echo "Using Access Token: " . $token . "...\n";
-        $ch = curl_init($this->createShipmentUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => [
-                'Authorization: Bearer ' . $token,
-                'Content-Type: application/json',
-            ],
-            CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->connectTimeoutSeconds,
-        ]);
-
-        $raw = curl_exec($ch);
-        if ($raw === false) {
-            $err = curl_error($ch);
-            curl_close($ch);
-            throw new RuntimeException('Error cURL createShipment: ' . $err);
-        }
-        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        $data = json_decode($raw, true);
-        if ($http >= 400 || $data === null) {
-            throw new RuntimeException('HTTP ' . $http . ' createShipment response: ' . $raw);
-        }
-        return $data;
-    }
-
-    public function cancelShipment(string $masterTrackingNumber, array $credential = []): array
-    {
-        $token = $this->getAccessToken();
-        $body = [
-            // En PROD es requerido; en TEST puede omitirse, pero aquí permitimos inyectarlo.
-            'credential' => (object)$credential,
-            'masterTrackingNumber' => $masterTrackingNumber,
-        ];
-
-        $ch = curl_init($this->cancelShipmentUrl);
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => [
-                'Authorization: Bearer ' . $token,
-                'Content-Type: application/json',
-            ],
-            CURLOPT_POSTFIELDS     => json_encode($body, JSON_UNESCAPED_UNICODE),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->connectTimeoutSeconds,
-        ]);
-
-        $raw = curl_exec($ch);
-        if ($raw === false) {
-            $err = curl_error($ch);
-            curl_close($ch);
-            throw new RuntimeException('Error cURL cancelShipment: ' . $err);
-        }
-        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        $data = json_decode($raw, true);
-        if ($http >= 400 || $data === null) {
-            throw new RuntimeException('HTTP ' . $http . ' cancelShipment response: ' . $raw);
-        }
-        return $data;
-    }
-
-    private function isValidUsDate(string $date): bool
-    {
-        $p = explode('-', $date);
-        if (count($p) !== 3) return false;
-        [$dd, $mm, $yyyy] = $p;
-        if (strlen($mm) !== 2 || strlen($dd) !== 2 || strlen($yyyy) !== 4) return false;
-        return checkdate((int)$mm, (int)$dd, (int)$yyyy);
-    }
-}
-
-// Credenciales OAuth (TEST) del doc
 $TEST_USERNAME = 'oY3jhNDORE62o2zPnwnW';
 $TEST_PASSWORD = 'l6uCn7Ll96lyot4T6aqQ3VLlq';
 
@@ -181,12 +18,19 @@ $CREDENTIAL = [
     "wspasswordUserCredential" => "5woctSZ7SjTeV7gBPVPgHZklu"
 ];
 
-$client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD);
+$OPTIONS = [
+    "oauthUrl"            => "https://wsbeta.fedex.com/LAC/ServicesAPI/oauth/token",
+    "createShipmentUrl"   => "https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/createShipment",
+    "cancelShipmentUrl"   => "https://wsbeta.fedex.com/LAC/ServicesAPI/cdrm/api/cancelShipment"
+];
 
-// Payload con 1 bulto, payer SENDER 615612898 y labelType "ONLY_DATA"
+
+
+$client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD, $OPTIONS);
+
 $payload = [
     "credential" => $CREDENTIAL,
-    'shipper' => [
+    'shipper' => [ // BD
         'contact' => [
             'personName'  => 'Sils Group',
             'phoneNumber' => '+56931987281',
@@ -205,7 +49,7 @@ $payload = [
             'streetLine3' => ''
         ],
     ],
-    'recipient' => [
+    'recipient' => [ // BD
         'contact' => [
             'personName'  => 'Carlos Jordan',
             'phoneNumber' => '+56959495349',
@@ -229,10 +73,10 @@ $payload = [
     "packagingType" => "YOUR_PACKAGING",
     "shippingChargesPayment" => [
         "paymentType" => "SENDER",
-        "accountNumber" => "615612898"
+        "accountNumber" => "615612898" // BD
     ],
     'labelType' => 'ONLY_DATA',
-    "requestedPackageLineItems" => [
+    "requestedPackageLineItems" => [ // BD - SON LOS BULTOS A SER ENVIADOS
         [
             "itemDescription" => "82850194-89994- 1/1", // optional
             "weight" => [ // required
@@ -261,52 +105,46 @@ $payload = [
         ]
     ],
     "specialServicesRequested" => [
-        "specialServiceTypes" => [
-            "RETURN_DOCUMENTS" // TAG QUE INDICA QUE SE INCLUYE DOCUMENTACIÓN LA REFERENCIA DEL DOCUMENTO A RETORNAR
-        ],
+        "specialServiceTypes" => ["PSDR"],
         "documentsToReturn" => [
-            [
-                "docType" => "CI",   // TIPO DE DOCUMENTO A RETORNAR
-                "docId"   => "89994" // IDENTIFICADOR DEL DOCUMENTO A RETORNAR (REFERENCIA)
-            ]
         ],
-        "customerDocsReference" => "89994"
+        "customerDocsReference" => "510100027"
     ],
     "clearanceDetail" => [
-        "documentContent" => "NON_DOCUMENT", // TIPO DE CONTENIDO, ENVIOS INTRA CHILE PUEDEN SER "NON_DOCUMENT" O "DOCUMENT"
-        "commodities" => [
-            [
-                "description" => "some packs",
-                "countryOfManufacture" => "CL",
-                "numberOfPieces" => 1,
-                "weight" => [
-                    "value" => 0.0,
-                    "units" => "KG"
-                ],
-                "quantity" => 0,
-                "quantityUnits" => "PCS",
-                "unitPrice" => [
-                    "amount" => 0.0,
-                    "currency" => "CHP"
-                ]
-            ]
-        ]
+        "documentContent" => "NON_DOCUMENT"//, // TIPO DE CONTENIDO, ENVIOS INTRA CHILE PUEDEN SER "NON_DOCUMENT" O "DOCUMENT"
+        // "commodities" => [
+        //     [
+        //         "description" => "some packs",
+        //         "countryOfManufacture" => "CL",
+        //         "numberOfPieces" => 1,
+        //         "weight" => [
+        //             "value" => 0.0,
+        //             "units" => "KG"
+        //         ],
+        //         "quantity" => 0,
+        //         "quantityUnits" => "PCS",
+        //         "unitPrice" => [
+        //             "amount" => 0.0,
+        //             "currency" => "CHP"
+        //         ]
+        //     ]
+        // ]
     ],
     // LAS REFERENCIAS SON CAMPOS LIBRES QUE SE PUEDEN UTILIZAR PARA DIFERENTES FINES COMO SEGUIMIENTO, IDENTIFICACIÓN, ETC.
-    "references" => [
-        [
-            "customerReferenceType" => "CUSTOMER_REFERENCE", // REFERENCIA CLIENTE
-            "value" => "89994"
-        ],
-        [
-            "customerReferenceType" => "PURCHACE_ORDER", // ORDEN DE COMPRA
-            "value" => "82850194"
-        ],
-        [
-            "customerReferenceType" => "INVOICE", // FACTURA
-            "value" => "89994"
-        ]
-    ],
+    // "references" => [
+    //     [
+    //         "customerReferenceType" => "CUSTOMER_REFERENCE", // REFERENCIA CLIENTE
+    //         "value" => "89994"
+    //     ],
+    //     [
+    //         "customerReferenceType" => "PURCHACE_ORDER", // ORDEN DE COMPRA
+    //         "value" => "82850194"
+    //     ],
+    //     [
+    //         "customerReferenceType" => "INVOICE", // FACTURA
+    //         "value" => "89994"
+    //     ]
+    // ],
     // VALOR DEL SEGURO, SI NO SE REQUIERE, DEJAR EN 0
     "insuranceValue" => [
         "amount" => 1146264,
@@ -316,7 +154,14 @@ $payload = [
 
 try {
     $res = $client->createShipment($payload);
-    echo "Envío creado OK\n";
+    
+    $resJson = json_encode($res, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    
+    echo "<br><br>Respuesta JSON:<br><pre>" . htmlspecialchars($resJson) . "</pre>";
+    // echo "Respuesta\n\n\n\n";
+    // print_r($res);
+    // echo "Envío creado OK\n\n\n\n";
+
     // === Ejemplo de lectura de datos esperados (nombres de campos pueden variar según backend) ===
     $master = $res['masterTrackingNumber'] ?? $res['master']['trackingNumber'] ?? null; // Guía máster / Guía de bulto
     $pouch  = $res['pouchId'] ?? $res['pouch']['id'] ?? null;                           // Pouch ID
@@ -324,10 +169,10 @@ try {
     $returnTag   = $res['returnDocuments']['returnTag']   ?? null; // ej. base64/ZPL/PNG según implementación
     $returnLabel = $res['returnDocuments']['returnLabel'] ?? null;
 
-    echo "Master/Guía de bulto: " . ($master ?: 'N/D') . PHP_EOL;
-    echo "Pouch ID: " . ($pouch ?: 'N/D') . PHP_EOL;
-    echo "Return TAG presente: " . (empty($returnTag) ? 'No' : 'Sí') . PHP_EOL;
-    echo "Return LABEL DOCS presente: " . (empty($returnLabel) ? 'No' : 'Sí') . PHP_EOL;
+    // echo "Master/Guía de bulto: " . ($master ?: 'N/D') . PHP_EOL;
+    // echo "Pouch ID: " . ($pouch ?: 'N/D') . PHP_EOL;
+    // echo "Return TAG presente: " . (empty($returnTag) ? 'No' : 'Sí') . PHP_EOL;
+    // echo "Return LABEL DOCS presente: " . (empty($returnLabel) ? 'No' : 'Sí') . PHP_EOL;
 
     // Si quisieras persistir etiquetas de retorno cuando existen:
     // if (!empty($returnTag))   file_put_contents('return_tag.bin', base64_decode($returnTag));
