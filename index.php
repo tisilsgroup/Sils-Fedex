@@ -216,13 +216,14 @@ function guardarPayload( $row, $payload, $responseMaster) {
     global $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential;
 
     // Datos adicionales para guardar
-    $ctacli  = strOrEmpty($row['ctacli'] ?? '');
-    $coduni  = strOrEmpty($row['coduni'] ?? '');
-    $codproc = strOrEmpty($row['codproc'] ?? '');
-    $anio    = strOrEmpty($row['anio'] ?? '');
-    $idSap   = strOrEmpty($row['id_sap'] ?? '');
-    $punent  = strOrEmpty($row['punent'] ?? '');
-    $sku     = strOrEmpty($row['skusap'] ?? '');
+    $ctacli     = strOrEmpty($row['ctacli'] ?? '');
+    $coduni     = strOrEmpty($row['coduni'] ?? '');
+    $codproc    = strOrEmpty($row['codproc'] ?? '');
+    $anio       = strOrEmpty($row['anio'] ?? '');
+    $idSap      = strOrEmpty($row['id_sap'] ?? '');
+    $punent     = strOrEmpty($row['punent'] ?? '');
+    $sku        = strOrEmpty($row['skusap'] ?? '');
+    $postalCode = strOrEmpty($row['postalCode'] ?? '');
 
     echo '<br><br><br>';    
     foreach ($responseMaster as $response) {
@@ -247,7 +248,7 @@ function guardarPayload( $row, $payload, $responseMaster) {
         echo "Status: $status</br></br>";
         
         $fedexRespMaster = $fedexObj->saveMaster( $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential,
-                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku,        
+                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode,       
                             $payload, $masterTrackingNumber, $comments, $status );
         
         if( !empty($fedexRespMaster) && isset($fedexRespMaster['resultado']) && $fedexRespMaster['resultado'] == 1 && isset($fedexRespMaster['masterId']) ) {
@@ -255,19 +256,19 @@ function guardarPayload( $row, $payload, $responseMaster) {
             echo "Master guardado con ID: $fedexRespMasterId</br></br>";
         } 
         
-        if ($fedexRespMasterId > 0)  {
-            foreach ($docResponseZPL as $doc) {
-                echo "DocResponse ZPL:</br>";
-                print_r($doc);
-                echo '<br><br><br>';
-            }
+        // if ($fedexRespMasterId > 0)  {
+        //     foreach ($docResponseZPL as $doc) {
+        //         echo "DocResponse ZPL:</br>";
+        //         print_r($doc);
+        //         echo '<br><br><br>';
+        //     }
 
-            echo "</br>=== DETALLE ===</br>";
-            foreach ($detalle as $d) {
-                print_r($d);
-                echo '<br><br><br>';
-            }
-        }
+        //     echo "</br>=== DETALLE ===</br>";
+        //     foreach ($detalle as $d) {
+        //         print_r($d);
+        //         echo '<br><br><br>';
+        //     }
+        // }
         // ======================
         // DETALLE (bultos)
         // ======================

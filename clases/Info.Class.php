@@ -35,14 +35,14 @@ class Info {
     /// @return array
     public function saveMaster(
         $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential,
-        $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku,        
+        $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode,        
         $payloads, $masterTrackingNumber, $comments, $status
     ) {
 
 
-        $stmt = $this->conn->prepare("{CALL fedex.SP_reportMaster (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}");
+        $stmt = $this->conn->prepare("{CALL fedex.SP_reportMaster (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}");
 		$stmt->execute(array( $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential,
-                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku,        
+                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode,        
                             $payloads, $masterTrackingNumber, $comments, $status
                         ));
 
