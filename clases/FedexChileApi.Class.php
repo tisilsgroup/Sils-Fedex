@@ -19,8 +19,10 @@ class FedExChileApi
     private ?string $accessToken = null;
     private int $accessTokenExpiresAt = 0;
 
-    private int $timeoutSeconds = 25;
+    private int $timeoutSeconds = 300;
     private int $connectTimeoutSeconds = 10;
+    private int $lowSpeedLimit = 1; // bytes
+    private int $lowSpeedTime = 300;  // seconds
 
     public function __construct(string $clientId, string $clientSecret, array $options = [])
     {
@@ -79,11 +81,6 @@ class FedExChileApi
 
     public function createShipment(array $payload): array
     {
-        // echo '<br>';
-        // echo '<br>createShipment payload: ';
-        // print_r($payload);
-        // echo '<br>';
-        echo '<br>';
         if (isset($payload['shipDate']) && !$this->isValidUsDate($payload['shipDate'])) {
             throw new InvalidArgumentException('shipDate debe tener formato MM/dd/yyyy');
         }
@@ -94,7 +91,6 @@ class FedExChileApi
         }
 
         $token = $this->getAccessToken();
-        // echo "Using Access Token: " . $token . "...\n";
         $ch = curl_init($this->createShipmentUrl);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
@@ -102,10 +98,12 @@ class FedExChileApi
                 'Authorization: Bearer ' . $token,
                 'Content-Type: application/json',
             ],
-            CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->connectTimeoutSeconds,
+            CURLOPT_POSTFIELDS      => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            CURLOPT_RETURNTRANSFER  => true,
+            CURLOPT_TIMEOUT         => $this->timeoutSeconds,
+            CURLOPT_CONNECTTIMEOUT  => $this->connectTimeoutSeconds,
+            CURLOPT_LOW_SPEED_LIMIT => $this->lowSpeedLimit,
+            CURLOPT_LOW_SPEED_TIME  => $this->lowSpeedTime,
         ]);
 
         $raw = curl_exec($ch);

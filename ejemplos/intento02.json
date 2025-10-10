@@ -1,0 +1,105 @@
+  {
+    "credential": {
+      "accountNumber": "615612898",
+      "meterNumber": "256549685",
+      "wskeyUserCredential": "ICA5VOTfC6F74Dlt",
+      "wspasswordUserCredential": "5woctSZ7SjTeV7gBPVPgHZklu"
+    },
+    "shipper": {
+      "contact": {
+        "personName": "Sils Group",
+        "phoneNumber": "+56931987281",
+        "companyName": "Sils Group",
+        "email": "contacto@sils.group",
+        "vatNumber": "77057527-3"
+      },
+      "address": {
+        "city": "Pudahuel",
+        "stateOrProvinceCode": "CL",
+        "postalCode": "9020",
+        "countryCode": "CL",
+        "residential": "",
+        "streetLine1": "Puerto Santiago 259",
+        "streetLine2": "",
+        "streetLine3": ""
+      }
+    },
+    "recipient": {
+      "contact": {
+        "personName": "ESC PEDRO VICENTE GUTIERREZ TORRES",
+        "phoneNumber": "1",
+        "companyName": "ESC PEDRO VICENTE GUTIERREZ TORRES",
+        "email": "",
+        "vatNumber": "767575009"
+      },
+      "address": {
+        "city": "ARICA",
+        "stateOrProvinceCode": "15",
+        "postalCode": "8240000",
+        "countryCode": "CL",
+        "residential": "",
+        "streetLine1": "QUEBRADA DE ACHA S/N 2063 RUTA 5-ANEXO SANTIAGO FLORES PARC 14 CERRO SOMBRERO 0",
+        "streetLine2": "",
+        "streetLine3": ""
+      }
+    },
+    "shipDate": "29-09-2025",
+    "serviceType": "FEDEX_PRIORITY",
+    "packagingType": "YOUR_PACKAGING",
+    "shippingChargesPayment": {
+      "paymentType": "SENDER",
+      "accountNumber": "615612898"
+    },
+    "labelType": "ONLY_DATA",
+    "requestedPackageLineItems": [
+      {
+        "itemDescription": "9998-SET07ADULTO- 1/2",
+        "weight": {
+          "value": 2.37,
+          "units": "KG"
+        },
+        "dimensions": {
+          "length": 25,
+          "width": 23.5,
+          "height": 0.7,
+          "units": "CM"
+        }
+      },
+      {
+        "itemDescription": "9998-SET07ADULTO- 2/2",
+        "weight": {
+          "value": 2.37,
+          "units": "KG"
+        },
+        "dimensions": {
+          "length": 25,
+          "width": 23.5,
+          "height": 0.7,
+          "units": "CM"
+        }
+      }
+    ],
+    "specialServicesRequested": {
+      "specialServiceTypes": [
+        "PSDR"
+    ],
+      "documentsToReturn": {
+        "docType": "DELP",
+        "docId": "2540259113"
+      },
+      "customerDocsReference": "510100027"
+    },
+    "clearanceDetail": {
+      "documentContent": "NON_DOCUMENT"
+    },
+    "insuranceValue": {
+      "amount": 1146264,
+      "currency": "CHP"
+    },
+    "_meta": {
+      "punent": "0000000003",
+      "anio": "2024",
+      "sku": "SET07ADULTO",
+      "desc": "DISTRIBUCION JUANEB"
+    }
+  }

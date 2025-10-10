@@ -6,36 +6,41 @@
  * - createShipment / cancelShipment
  */
 require_once($_SERVER['DOCUMENT_ROOT'].'/clases/FedexChileApi.Class.php');
-require_once($_SERVER['DOCUMENT_ROOT'].'/clases/Fedex.Class.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/clases/Info.Class.php');
 
-$fedexObj = new Fedex(null);
+$fedexObj = new Info(null);
 $fedexCnf = $fedexObj->recoverConfiguration();
 $fedexInf = $fedexObj->recoverPending();
 $fedexObj->Close();
 
-print_r($fedexInf);
+// print_r($fedexInf);
 
-$TEST_USERNAME = $fedexCnf['conf_texto_150'];
-$TEST_PASSWORD = $fedexCnf['conf_texto_151'];
+$TEST_USERNAME = $fedexCnf['conf_texto_1'];
+$TEST_PASSWORD = $fedexCnf['conf_texto_2'];
 
-$paymentType   = $fedexCnf['conf_texto_172'];
-$accountNumber = $fedexCnf['conf_texto_173'];
+$paymentType   = $fedexCnf['conf_texto_23'];
+$accountNumber = $fedexCnf['conf_texto_24'];
 
-$specialServiceTypes   = $fedexCnf['conf_texto_174'];
-$customerDocsReference = $fedexCnf['conf_texto_175'];
+$specialServiceTypes   = $fedexCnf['conf_texto_25'];
+$customerDocsReference = $fedexCnf['conf_texto_26'];
+
+$accountNumber              = $fedexCnf['conf_texto_3'];
+$meterNumber                = $fedexCnf['conf_texto_4'];
+$wskeyUserCredential        = $fedexCnf['conf_texto_5'];
+$wspasswordUserCredential   = $fedexCnf['conf_texto_6'];
 
 // Credenciales de envío
 $CREDENTIAL = [
-    "accountNumber"            => $fedexCnf['conf_texto_152'],
-    "meterNumber"              => $fedexCnf['conf_texto_153'],
-    "wskeyUserCredential"      => $fedexCnf['conf_texto_154'],
-    "wspasswordUserCredential" => $fedexCnf['conf_texto_155']
+    "accountNumber"            => $accountNumber,
+    "meterNumber"              => $meterNumber,
+    "wskeyUserCredential"      => $wskeyUserCredential,
+    "wspasswordUserCredential" => $wspasswordUserCredential
 ];
 
 $OPTIONS = [
-    "oauthUrl"            => $fedexCnf['conf_texto_156'],
-    "createShipmentUrl"   => $fedexCnf['conf_texto_157'],
-    "cancelShipmentUrl"   => $fedexCnf['conf_texto_158']
+    "oauthUrl"            => $fedexCnf['conf_texto_7'],
+    "createShipmentUrl"   => $fedexCnf['conf_texto_8'],
+    "cancelShipmentUrl"   => $fedexCnf['conf_texto_9']
 ];
 
 function onlyDigitsAndPlus($s) {
@@ -52,13 +57,36 @@ $client = new FedExChileApi($TEST_USERNAME, $TEST_PASSWORD, $OPTIONS);
 $payloads = [];
 
 foreach ($fedexInf as $row) {
+    $streetMaxLength = 35; // 3 líneas de 35 caracteres cada una
+    $street          = strOrEmpty($row['destinatarioDireccion'] ?? '');
+    $streetLine1     = '';
+    $streetLine2     = '';
+    $streetLine3     = '';
+
+    $streetActualLength = strlen($street);
+    if ($streetActualLength > $streetMaxLength) {
+        $streetLine1 = substr($street, 0, $streetMaxLength);
+        $street      = substr($street, $streetMaxLength, $streetActualLength - $streetMaxLength);
+        $streetLine2 = $street;
+    } else {
+        $streetLine1 = $street;
+        $street      = '';
+    }
+
+    $streetActualLength = strlen($street);
+    if ($streetActualLength > $streetMaxLength) {
+        $streetLine2 = substr($street, 0, $streetMaxLength);
+        $street      = substr($street, $streetMaxLength, $streetActualLength - $streetMaxLength);
+        $streetLine3 = $street;
+    }
+
     $recipient = [
         'contact' => [
             'personName'  => strOrEmpty($row['destinatarioContacto'] ?? $row['destinatarioNombre']),
-            'phoneNumber' => onlyDigitsAndPlus($row['destinatarioTelefono'] ?? '+56912345678'),
-            'companyName' => strOrEmpty($row['destinatarioNombre'] ?? 'Destinatario'),
-            'email'       => strOrEmpty($row['destinatarioEmail'] ?? 'Email@gmail.com'),
-            'vatNumber'   => strOrEmpty($row['ctacli'] ?? '455'),
+            'phoneNumber' => onlyDigitsAndPlus($row['destinatarioTelefono'] ?? ''),
+            'companyName' => strOrEmpty($row['destinatarioNombre'] ?? ''),
+            'email'       => strOrEmpty($row['destinatarioEmail'] ?? ''),
+            'vatNumber'   => strOrEmpty($row['ctacli'] ?? ''),
         ],
         'address' => [
             'city'                => strOrEmpty($row['comuna'] ?? ''),
@@ -66,9 +94,9 @@ foreach ($fedexInf as $row) {
             'postalCode'          => strOrEmpty($row['postalCode'] ?? '8240000'),
             'countryCode'         => 'CL',
             'residential'         => false,
-            'streetLine1'         => strOrEmpty($row['destinatarioDireccion'] ?? ''),
-            'streetLine2'         => '',
-            'streetLine3'         => ''
+            'streetLine1'         => $streetLine1,
+            'streetLine2'         => $streetLine2,
+            'streetLine3'         => $streetLine3
         ],
     ];
 
@@ -80,12 +108,17 @@ foreach ($fedexInf as $row) {
     $ancho = (float)($row['paqueteAncho'] ?? 0);
     $alto  = (float)($row['paqueteAlto']  ?? 0);
 
+    $idSap  = (int)($row['id_sap']  ?? 0);
+    $anio   = substr(strOrEmpty($row['anio'] ?? ''), -2);
+    $punEnt = strOrEmpty($row['punent'] ?? '');
+    $docId  = $idSap.$anio.$punEnt;
+
     $requestedPackageLineItems = [];
     for ($i = 1; $i <= max(1, $bultos); $i++) {
         $requestedPackageLineItems[] = [
             "itemDescription" => sprintf(
                 "%s-%s- %d/%d",
-                strOrEmpty($row['id_sap'] ?? ''),
+                $idSap,
                 strOrEmpty($row['paqueteCodigo'] ?? ''),
                 $i,
                 max(1, $bultos)
@@ -107,21 +140,21 @@ foreach ($fedexInf as $row) {
         "credential" => $CREDENTIAL,
         'shipper' => [
             'contact' => [
-                'personName'  => $fedexCnf['conf_texto_159'],
-                'phoneNumber' => $fedexCnf['conf_texto_160'],
-                'companyName' => $fedexCnf['conf_texto_161'],
-                'email'       => $fedexCnf['conf_texto_162'],
-                'vatNumber'   => $fedexCnf['conf_texto_163'],
+                'personName'  => $fedexCnf['conf_texto_10'],
+                'phoneNumber' => $fedexCnf['conf_texto_11'],
+                'companyName' => $fedexCnf['conf_texto_12'],
+                'email'       => $fedexCnf['conf_texto_13'],
+                'vatNumber'   => $fedexCnf['conf_texto_14'],
             ],
             'address' => [
-                'city'                => $fedexCnf['conf_texto_164'],
-                'stateOrProvinceCode' => $fedexCnf['conf_texto_165'],
-                'postalCode'          => $fedexCnf['conf_texto_166'],
-                'countryCode'         => $fedexCnf['conf_texto_167'],
+                'city'                => $fedexCnf['conf_texto_15'],
+                'stateOrProvinceCode' => $fedexCnf['conf_texto_16'],
+                'postalCode'          => $fedexCnf['conf_texto_17'],
+                'countryCode'         => $fedexCnf['conf_texto_18'],
                 'residential'         => false,
-                'streetLine1'         => $fedexCnf['conf_texto_169'],
-                'streetLine2'         => $fedexCnf['conf_texto_170'],
-                'streetLine3'         => $fedexCnf['conf_texto_171'],
+                'streetLine1'         => $fedexCnf['conf_texto_20'],
+                'streetLine2'         => $fedexCnf['conf_texto_21'],
+                'streetLine3'         => $fedexCnf['conf_texto_22'],
             ],
         ],
         'recipient' => $recipient,
@@ -130,13 +163,16 @@ foreach ($fedexInf as $row) {
         "packagingType" => "YOUR_PACKAGING",
         "shippingChargesPayment" => [
             "paymentType"   => $paymentType   ?? "SENDER",
-            "accountNumber" => $accountNumber ?? "615612898"
+            "accountNumber" => $accountNumber
         ],
         'labelType' => 'ONLY_DATA',
         "requestedPackageLineItems" => $requestedPackageLineItems,
         "specialServicesRequested" => [
-            "specialServiceTypes"   => isset($specialServiceTypes) ? [$specialServiceTypes] : ["PSDR"],
-            "documentsToReturn"     => [],
+            "specialServiceTypes"   => isset($specialServiceTypes) ? [$specialServiceTypes] : ["specialServiceTypes"],
+            "documentsToReturn"     => [[
+                "docType" => "DELR",
+                "docId"   => $docId
+            ]],
             "customerDocsReference" => $customerDocsReference ?? "510100027"
         ],
         "clearanceDetail" => [
@@ -155,52 +191,168 @@ foreach ($fedexInf as $row) {
         'desc'   => strOrEmpty($row['paqueteDescripcion'] ?? ''),
     ];
 
-    $payloads[] = $payload;
+    $respuesta = generarEnvio($payload);
+    guardarPayload( $row, $payload, $respuesta );
 }
 
-try {
-    // $results = [];
-    // foreach ($payloads as $payload) {
-    //     $res = $client->createShipment($payload);
-    //     $results[] = $res;
+
+function generarEnvio( $payload ) {
+    global $client;
+    $responses = [];
+    // foreach ($payloads as $payload) {   
+        try {
+            $res = $client->createShipment($payload);
+            $responses[] = $res;
+            echo "<br><br>Envío creado OK. Master Tracking Number: " . ($res['masterTrackingNumber'] ?? 'N/A') . "</br></br>";
+        } catch (Throwable $e) {
+            echo "<br><br>Error creando envío: " . $e->getMessage() . "</br>";
+        }
     // }
-    // $res = $results;
-    $res = $client->createShipment($payload);
-    
-    $resJson = json_encode($res, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    
-    echo "<br><br>Respuesta JSON:<br><pre>" . htmlspecialchars($resJson) . "</pre>";
-    // echo "Respuesta\n\n\n\n";
-    // print_r($res);
-    // echo "Envío creado OK\n\n\n\n";
 
-    // === Ejemplo de lectura de datos esperados (nombres de campos pueden variar según backend) ===
-    $master = $res['masterTrackingNumber'] ?? $res['master']['trackingNumber'] ?? null; // Guía máster / Guía de bulto
-    $pouch  = $res['pouchId'] ?? $res['pouch']['id'] ?? null;                           // Pouch ID
-    // Etiquetas de retorno de documentos (cuando labelType=ONLY_DATA, estas sí deberían venir)
-    $returnTag   = $res['returnDocuments']['returnTag']   ?? null; // ej. base64/ZPL/PNG según implementación
-    $returnLabel = $res['returnDocuments']['returnLabel'] ?? null;
-
-    // echo "Master/Guía de bulto: " . ($master ?: 'N/D') . PHP_EOL;
-    // echo "Pouch ID: " . ($pouch ?: 'N/D') . PHP_EOL;
-    // echo "Return TAG presente: " . (empty($returnTag) ? 'No' : 'Sí') . PHP_EOL;
-    // echo "Return LABEL DOCS presente: " . (empty($returnLabel) ? 'No' : 'Sí') . PHP_EOL;
-
-    // Si quisieras persistir etiquetas de retorno cuando existen:
-    // if (!empty($returnTag))   file_put_contents('return_tag.bin', base64_decode($returnTag));
-    // if (!empty($returnLabel)) file_put_contents('return_label.bin', base64_decode($returnLabel));
-
-} catch (Throwable $e) {
-    echo "<br><br>Error creando envío: " . $e->getMessage() . "\n";
+    return $responses;
 }
+
+function guardarPayload( $row, $payload, $responseMaster) {
+    global $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential;
+
+    // Datos adicionales para guardar
+    $ctacli  = strOrEmpty($row['ctacli'] ?? '');
+    $coduni  = strOrEmpty($row['coduni'] ?? '');
+    $codproc = strOrEmpty($row['codproc'] ?? '');
+    $anio    = strOrEmpty($row['anio'] ?? '');
+    $idSap   = strOrEmpty($row['id_sap'] ?? '');
+    $punent  = strOrEmpty($row['punent'] ?? '');
+    $sku     = strOrEmpty($row['skusap'] ?? '');
+
+    echo '<br><br><br>';    
+    foreach ($responseMaster as $response) {
+        
+        // ======================
+        // MOSTRAR  Y GUARDAR DATOS
+        // ======================
+        $fedexRespMasterId = 0;
+        $fedexObj          = new Info(null);
+
+        // ======================
+        // DATOS MAESTROS
+        // ======================
+
+        $masterTrackingNumber = $response['masterTrackingNumber'] ?? null;
+        $comments             = $response['comments'] ?? null;
+        $status               = $response['status'] ?? null;
+
+        echo "=== MAESTRO ===</br>";
+        echo "Master Tracking: $masterTrackingNumber</br>";
+        echo "Comments: $comments</br>";
+        echo "Status: $status</br></br>";
+        
+        $fedexRespMaster = $fedexObj->saveMaster( $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential,
+                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku,        
+                            $payload, $masterTrackingNumber, $comments, $status );
+        
+        if( !empty($fedexRespMaster) && isset($fedexRespMaster['resultado']) && $fedexRespMaster['resultado'] == 1 && isset($fedexRespMaster['masterId']) ) {
+            $fedexRespMasterId = $fedexRespMaster['masterId'] ?? 0;
+            echo "Master guardado con ID: $fedexRespMasterId</br></br>";
+        } 
+        
+        if ($fedexRespMasterId > 0)  {
+            foreach ($docResponseZPL as $doc) {
+                echo "DocResponse ZPL:</br>";
+                print_r($doc);
+                echo '<br><br><br>';
+            }
+
+            echo "</br>=== DETALLE ===</br>";
+            foreach ($detalle as $d) {
+                print_r($d);
+                echo '<br><br><br>';
+            }
+        }
+        // ======================
+        // DETALLE (bultos)
+        // ======================
+        $detalle = [];
+        if (isset($response['labelResponse'])) {
+            foreach ($response['labelResponse'] as $label) {
+                $master = $label['masterTrackingNumber'] ?? $masterTrackingNumber;
+                foreach ($label['contentResponse'] as $content) {
+                    $detalle[] = [
+                        'masterTrackingNumber'  => $master,
+                        'packageSequenceNumber' => $label['packageSequenceNumber'] ?? null,
+                        'trackingNumber'        => $label['trackingNumber'] ?? null,
+                        'contentType'           => $content['contentType'] ?? null,
+                        'copiesToPrint'         => $content['copiesToPrint'] ?? null,
+                        'labelType'             => $content['labelType'] ?? null,
+                        'barcode1D'             => $content['barcode1D'] ?? null,
+                        'barcode2D'             => $content['barcode2D'] ?? null,
+                        'locationId'            => $content['locationId'] ?? null,
+                        'ursaPrefix'            => $content['ursaPrefix'] ?? null,
+                        'ursaSufix'             => $content['ursaSufix'] ?? null
+                    ];
+
+                    $fedexRespDetail = $fedexObj->saveDetail(
+                        $fedexRespMasterId,
+                        $master,
+                        $label['packageSequenceNumber'] ?? null,
+                        $label['trackingNumber'] ?? null,
+                        $content['contentType'] ?? null,
+                        $content['copiesToPrint'] ?? null,
+                        $content['labelType'] ?? null,
+                        $content['barcode1D'] ?? null,
+                        $content['barcode2D'] ?? null,
+                        $content['locationId'] ?? null,
+                        $content['ursaPrefix'] ?? null,
+                        $content['ursaSufix'] ?? null
+                    );
+                }
+            }
+        }
+
+        // Filtramos docResponse SOLO si el labelType es ZPL
+        $docResponseZPL = [];
+        if (isset($response['docResponse'])) {
+            foreach ($response['docResponse'] as $doc) {
+                foreach ($doc['contentResponse'] as $content) {
+                    if (($content['labelType'] ?? '') === 'ZPL') {
+                        $docResponseZPL[] = [
+                            'bufferBase64' => $content['bufferBase64'] ?? null,
+                            'barcode1D'    => $content['barcode1D'] ?? null,
+                            'barcode2D'    => $content['barcode2D'] ?? null,
+                            'locationId'   => $content['locationId'] ?? null,
+                            'ursaPrefix'   => $content['ursaPrefix'] ?? null,
+                            'ursaSufix'    => $content['ursaSufix'] ?? null
+                        ];
+
+                        $fedexRespDocResponseZPL = $fedexObj->saveDocResponseZPL(
+                            $fedexRespMasterId,
+                            $content['bufferBase64'] ?? null,
+                            $content['barcode1D'] ?? null,
+                            $content['barcode2D'] ?? null,
+                            $content['locationId'] ?? null,
+                            $content['ursaPrefix'] ?? null,
+                            $content['ursaSufix'] ?? null
+                        );
+                    }
+                }
+            }
+        }
+
+        
+        
+        $fedexObj->Close();
+
+        
+    }
+}
+
 /*
 // === Cancelación de envío (con la guía máster que recibiste) ===
 $masterTrackingNumber = 'REEMPLAZA_CON_TU_GUIA';
 try {
     $cancel = $client->cancelShipment($masterTrackingNumber, $CREDENTIAL);
-    echo "Cancelación OK\n";
+    echo "Cancelación OK</br>";
     print_r($cancel);
 } catch (Throwable $e) {
-    echo "Error cancelando envío: " . $e->getMessage() . "\n";
+    echo "Error cancelando envío: " . $e->getMessage() . "</br>";
 }
 */
