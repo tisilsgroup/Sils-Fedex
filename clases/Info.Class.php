@@ -15,6 +15,9 @@ class Info {
     }
 
 
+    /// Recuperar configuración de FedEx
+    /// Retorna un array con la configuración
+    /// @return array
 	public function recoverConfiguration() {
         $stmt = $this->conn->prepare("{CALL fedex.SP_configuracion_informacion ()}");
 		$stmt->execute();
@@ -22,6 +25,9 @@ class Info {
         return $stmt->fetch();
 	}
 
+    /// Recuperar envíos pendientes de impresión
+    /// Retorna un array con los envíos pendientes
+    /// @return array
     public function recoverPending() {
         $stmt = $this->conn->prepare("{CALL fedex.SP_solicitar_etiquetas ()}");
 		$stmt->execute();
