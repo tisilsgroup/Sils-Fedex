@@ -10,7 +10,6 @@ Permite automatizar la generación de etiquetas, el almacenamiento de respuestas
   - [📁 Estructura de Archivos](#-estructura-de-archivos)
   - [🔑 Configuración](#-configuración)
   - [🚀 Ejecución](#-ejecución)
-    - [bash](#bash)
   - [🧾 Auditoría](#-auditoría)
 
 
@@ -18,7 +17,7 @@ Permite automatizar la generación de etiquetas, el almacenamiento de respuestas
 
 ## 🧾 Versiones
 - 1.0.0 
-**20251013** Validaciones finales por parte de Sils Group
+**20251013** Para validaciones finales por parte de Sils Group
 
 ---
 
@@ -63,7 +62,7 @@ index.php ← Script principal
 
 ## 🔑 Configuración
 
-El script obtiene los datos de configuración desde la base de datos a través de `Info.Class.php`.  
+El script obtiene los datos de configuración desde la base de datos a través de `DataManager.Class.php` y `Info.Class.php`.  
 Las claves de configuración utilizadas son:
 
 | Campo | Descripción |
@@ -80,8 +79,8 @@ Las claves de configuración utilizadas son:
 
 Puede ejecutarse desde navegador o desde CLI:
 
-### bash
-php fedex_chile_client.php
+`php index.php`
+
 
 ## 🧾 Auditoría
 
