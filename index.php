@@ -1,19 +1,25 @@
 <?php
 /**
- * FedEx Chile Domestic API Client
+ * FedEx Chile API Integration
  *
  * - OAuth2 client_credentials (Basic + multipart/form-data)
  * - createShipment / cancelShipment
  */
 require_once($_SERVER['DOCUMENT_ROOT'].'/clases/FedexChileApi.Class.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/clases/Info.Class.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/clases/Auditoria.Class.php');
+
+
 
 $fedexObj = new Info(null);
 $fedexCnf = $fedexObj->recoverConfiguration();
 $fedexInf = $fedexObj->recoverPending();
 $fedexObj->Close();
 
-// print_r($fedexInf);
+$apiResult = is_array($fedexCnf) && !empty($fedexCnf);
+$auditoriaObj   = new Auditoria(null);
+$auditoriaObj->agregaAuditoria( 'recoverPending', 'Solicitud de registros locales', 'API', "EXEC fedex.SP_solicitar_etiquetas;", $apiResult, json_encode($fedexInf) );
+$auditoriaObj->Close();
 
 $TEST_USERNAME = $fedexCnf['conf_texto_1'];
 $TEST_PASSWORD = $fedexCnf['conf_texto_2'];
@@ -197,17 +203,16 @@ foreach ($fedexInf as $row) {
 
 
 function generarEnvio( $payload ) {
-    global $client;
+    global $client, $auditoriaObj;
     $responses = [];
-    // foreach ($payloads as $payload) {   
-        try {
-            $res = $client->createShipment($payload);
-            $responses[] = $res;
-            echo "<br><br>Envío creado OK. Master Tracking Number: " . ($res['masterTrackingNumber'] ?? 'N/A') . "</br></br>";
-        } catch (Throwable $e) {
-            echo "<br><br>Error creando envío: " . $e->getMessage() . "</br>";
-        }
-    // }
+    
+    try {
+        $res = $client->createShipment($payload);
+        $responses[] = $res;
+        echo "<br><br>Envío creado OK. Master Tracking Number: " . ($res['masterTrackingNumber'] ?? 'N/A') . "</br></br>";
+    } catch (Throwable $e) {
+        echo "<br><br>Error creando envío: " . $e->getMessage() . "</br>";
+    }
 
     return $responses;
 }
@@ -225,9 +230,9 @@ function guardarPayload( $row, $payload, $responseMaster) {
     $sku        = strOrEmpty($row['skusap'] ?? '');
     $postalCode = strOrEmpty($row['postalCode'] ?? '');
 
-    echo '<br><br><br>';    
+    echo '<br><br><br>';
     foreach ($responseMaster as $response) {
-        
+
         // ======================
         // MOSTRAR  Y GUARDAR DATOS
         // ======================
@@ -237,7 +242,6 @@ function guardarPayload( $row, $payload, $responseMaster) {
         // ======================
         // DATOS MAESTROS
         // ======================
-
         $masterTrackingNumber = $response['masterTrackingNumber'] ?? null;
         $comments             = $response['comments'] ?? null;
         $status               = $response['status'] ?? null;
@@ -246,114 +250,148 @@ function guardarPayload( $row, $payload, $responseMaster) {
         echo "Master Tracking: $masterTrackingNumber</br>";
         echo "Comments: $comments</br>";
         echo "Status: $status</br></br>";
-        
+
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
         $fedexRespMaster = $fedexObj->saveMaster( $accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential,
-                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode,       
-                            $payload, $masterTrackingNumber, $comments, $status );
-        
+                            $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode,
+                            $payloadJson, $masterTrackingNumber, $comments, $status );
+
+        $dml            = "$accountNumber, $meterNumber, $wskeyUserCredential, $wspasswordUserCredential, $ctacli, $coduni, $codproc, $anio, $idSap, $punent, $sku, $postalCode, $payloadJson, $masterTrackingNumber, $comments, $status";
+
+        $auditoriaObj   = new Auditoria(null);
+
         if( !empty($fedexRespMaster) && isset($fedexRespMaster['resultado']) && $fedexRespMaster['resultado'] == 1 && isset($fedexRespMaster['masterId']) ) {
             $fedexRespMasterId = $fedexRespMaster['masterId'] ?? 0;
+            $auditoriaObj->agregaAuditoria( 'recoverPending', 'Generación de MasterTrackingNumber', 'API', $dml, 1, 'fedexRespMasterId: '.$fedexRespMasterId );
             echo "Master guardado con ID: $fedexRespMasterId</br></br>";
-        } 
-        
-        // if ($fedexRespMasterId > 0)  {
-        //     foreach ($docResponseZPL as $doc) {
-        //         echo "DocResponse ZPL:</br>";
-        //         print_r($doc);
-        //         echo '<br><br><br>';
-        //     }
 
-        //     echo "</br>=== DETALLE ===</br>";
-        //     foreach ($detalle as $d) {
-        //         print_r($d);
-        //         echo '<br><br><br>';
-        //     }
-        // }
-        // ======================
-        // DETALLE (bultos)
-        // ======================
-        $detalle = [];
-        if (isset($response['labelResponse'])) {
-            foreach ($response['labelResponse'] as $label) {
-                $master = $label['masterTrackingNumber'] ?? $masterTrackingNumber;
-                foreach ($label['contentResponse'] as $content) {
-                    $detalle[] = [
-                        'masterTrackingNumber'  => $master,
-                        'packageSequenceNumber' => $label['packageSequenceNumber'] ?? null,
-                        'trackingNumber'        => $label['trackingNumber'] ?? null,
-                        'contentType'           => $content['contentType'] ?? null,
-                        'copiesToPrint'         => $content['copiesToPrint'] ?? null,
-                        'labelType'             => $content['labelType'] ?? null,
-                        'barcode1D'             => $content['barcode1D'] ?? null,
-                        'barcode2D'             => $content['barcode2D'] ?? null,
-                        'locationId'            => $content['locationId'] ?? null,
-                        'ursaPrefix'            => $content['ursaPrefix'] ?? null,
-                        'ursaSufix'             => $content['ursaSufix'] ?? null
-                    ];
+            if( $fedexRespMasterId  > 0 ) {
+                // ======================
+                // DETALLE (bultos)
+                // ======================
+                $detalle = [];
+                if (isset($response['labelResponse'])) {
+                    foreach ($response['labelResponse'] as $label) {
+                        $master = $label['masterTrackingNumber'] ?? $masterTrackingNumber;
+                        foreach ($label['contentResponse'] as $content) {
+                            $detalle[] = [
+                                'masterTrackingNumber'  => $master,
+                                'packageSequenceNumber' => $label['packageSequenceNumber'] ?? null,
+                                'trackingNumber'        => $label['trackingNumber'] ?? null,
+                                'contentType'           => $content['contentType'] ?? null,
+                                'copiesToPrint'         => $content['copiesToPrint'] ?? null,
+                                'labelType'             => $content['labelType'] ?? null,
+                                'barcode1D'             => $content['barcode1D'] ?? null,
+                                'barcode2D'             => $content['barcode2D'] ?? null,
+                                'locationId'            => $content['locationId'] ?? null,
+                                'ursaPrefix'            => $content['ursaPrefix'] ?? null,
+                                'ursaSufix'             => $content['ursaSufix'] ?? null
+                            ];
 
-                    $fedexRespDetail = $fedexObj->saveDetail(
-                        $fedexRespMasterId,
-                        $master,
-                        $label['packageSequenceNumber'] ?? null,
-                        $label['trackingNumber'] ?? null,
-                        $content['contentType'] ?? null,
-                        $content['copiesToPrint'] ?? null,
-                        $content['labelType'] ?? null,
-                        $content['barcode1D'] ?? null,
-                        $content['barcode2D'] ?? null,
-                        $content['locationId'] ?? null,
-                        $content['ursaPrefix'] ?? null,
-                        $content['ursaSufix'] ?? null
-                    );
-                }
-            }
-        }
+                            $packageSequenceNumber = $label['packageSequenceNumber'];
+                            $trackingNumber        = $label['trackingNumber'];
+                            $contentType           = $content['contentType'];
+                            $copiesToPrint         = $content['copiesToPrint'];
+                            $labelType             = $content['labelType'];
+                            $barcode1D             = $content['barcode1D'];
+                            $barcode2D             = $content['barcode2D'];
+                            $locationId            = $content['locationId'];
+                            $ursaPrefix            = $content['ursaPrefix'];
+                            $ursaSufix             = $content['ursaSufix'];
 
-        // Filtramos docResponse SOLO si el labelType es ZPL
-        $docResponseZPL = [];
-        if (isset($response['docResponse'])) {
-            foreach ($response['docResponse'] as $doc) {
-                foreach ($doc['contentResponse'] as $content) {
-                    if (($content['labelType'] ?? '') === 'ZPL') {
-                        $docResponseZPL[] = [
-                            'bufferBase64' => $content['bufferBase64'] ?? null,
-                            'barcode1D'    => $content['barcode1D'] ?? null,
-                            'barcode2D'    => $content['barcode2D'] ?? null,
-                            'locationId'   => $content['locationId'] ?? null,
-                            'ursaPrefix'   => $content['ursaPrefix'] ?? null,
-                            'ursaSufix'    => $content['ursaSufix'] ?? null
-                        ];
+                            $fedexRespDetail = $fedexObj->saveDetail(
+                                $fedexRespMasterId,
+                                $master,
+                                $packageSequenceNumber,
+                                $trackingNumber,
+                                $contentType,
+                                $copiesToPrint,
+                                $labelType,
+                                $barcode1D,
+                                $barcode2D,
+                                $locationId,
+                                $ursaPrefix,
+                                $ursaSufix
+                            );
 
-                        $fedexRespDocResponseZPL = $fedexObj->saveDocResponseZPL(
-                            $fedexRespMasterId,
-                            $content['bufferBase64'] ?? null,
-                            $content['barcode1D'] ?? null,
-                            $content['barcode2D'] ?? null,
-                            $content['locationId'] ?? null,
-                            $content['ursaPrefix'] ?? null,
-                            $content['ursaSufix'] ?? null
-                        );
+                            $result  = $fedexRespDetail['resultado'];
+                            $message = $fedexRespDetail['mensaje'];
+
+                            $dml = "EXEC fedex.SP_reportDetail($fedexRespMasterId, $master, $packageSequenceNumber, $trackingNumber, $contentType, $copiesToPrint, $labelType, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix)";
+
+                            $auditoriaObj->agregaAuditoria( 'saveDetail', 'Registro de Detalle de Bultos', 'API', $dml, $result, $message );
+                        }
                     }
                 }
+
+                // Filtramos docResponse SOLO si el labelType es ZPL
+                $docResponseZPL = [];
+                if (isset($response['docResponse'])) {
+                    foreach ($response['docResponse'] as $doc) {
+                        foreach ($doc['contentResponse'] as $content) {
+                            if (($content['labelType'] ?? '') === 'ZPL') {
+                                $docResponseZPL[] = [
+                                    'bufferBase64' => $content['bufferBase64'] ?? null,
+                                    'barcode1D'    => $content['barcode1D'] ?? null,
+                                    'barcode2D'    => $content['barcode2D'] ?? null,
+                                    'locationId'   => $content['locationId'] ?? null,
+                                    'ursaPrefix'   => $content['ursaPrefix'] ?? null,
+                                    'ursaSufix'    => $content['ursaSufix'] ?? null
+                                ];
+
+                                $bufferBase64 = $content['bufferBase64'] ?? null;
+                                $barcode1D    = $content['barcode1D'] ?? null;
+                                $barcode2D    = $content['barcode2D'] ?? null;
+                                $locationId   = $content['locationId'] ?? null;
+                                $ursaPrefix   = $content['ursaPrefix'] ?? null;
+                                $ursaSufix    = $content['ursaSufix'] ?? null;
+
+                                $fedexRespDocResponseZPL = $fedexObj->saveDocResponseZPL(
+                                    $fedexRespMasterId,
+                                    $bufferBase64,
+                                    $barcode1D,
+                                    $barcode2D,
+                                    $locationId,
+                                    $ursaPrefix,
+                                    $ursaSufix
+                                );
+
+                                $result  = $fedexRespDocResponseZPL['resultado'];
+                                $message = $fedexRespDocResponseZPL['mensaje'];
+
+                                $dml = "EXEC fedex.SP_reportDocResponseZPL($fedexRespMasterId, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix)";
+
+                                $auditoriaObj->agregaAuditoria( 'saveDocResponseZPL', 'Registro de docResponseZPL', 'API', $dml, $result, $message );
+                            }
+                        }
+                    }
+                }
+
+                /// Habilitar si se desea cancelar el envío inmediatamente (modo prueba)
+                // cancelandoEnvio( $masterTrackingNumber );
+            } else {
+                $auditoriaObj->agregaAuditoria( 'recoverPending', 'Generación de MasterTrackingNumber', 'API', $dml, 0, 'Error guardando master' );
+                cancelandoEnvio( $masterTrackingNumber );
             }
+        } else {
+            $auditoriaObj->agregaAuditoria( 'recoverPending', 'Generación de MasterTrackingNumber', 'API', $dml, 0, 'Error guardando master' );
+            cancelandoEnvio( $masterTrackingNumber );
         }
 
-        
-        
         $fedexObj->Close();
-
-        
     }
 }
 
-/*
-// === Cancelación de envío (con la guía máster que recibiste) ===
-$masterTrackingNumber = 'REEMPLAZA_CON_TU_GUIA';
-try {
-    $cancel = $client->cancelShipment($masterTrackingNumber, $CREDENTIAL);
-    echo "Cancelación OK</br>";
-    print_r($cancel);
-} catch (Throwable $e) {
-    echo "Error cancelando envío: " . $e->getMessage() . "</br>";
+
+function cancelandoEnvio( $masterTrackingNumber ) {
+    global $client, $CREDENTIAL;
+    $auditoriaObj   = new Auditoria(null);
+    try {
+        $response = $client->cancelShipment($masterTrackingNumber, $CREDENTIAL);
+        $auditoriaObj->agregaAuditoria( 'cancelShipment', 'Cancelación de envío', 'API', "fedexRespMasterId: $masterTrackingNumber", 1, json_encode($response) );
+    } catch (Throwable $e) {
+        $error =  "Error cancelando envío: " . $e->getMessage() . "</br>";
+        $auditoriaObj->agregaAuditoria( 'cancelShipment', 'Cancelación de envío', 'API', "fedexRespMasterId: $masterTrackingNumber", 0, $error );
+    }
+    $auditoriaObj->Close();
 }
-*/

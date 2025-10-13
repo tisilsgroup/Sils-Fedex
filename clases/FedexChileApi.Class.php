@@ -7,6 +7,8 @@
  * - Soporta labelType "ONLY_DATA" (según instrucción complementaria)
  */
 
+require_once($_SERVER['DOCUMENT_ROOT'].'/clases/Auditoria.Class.php');
+
 class FedExChileApi
 {
     private string $oauthUrl;
@@ -91,6 +93,10 @@ class FedExChileApi
         }
 
         $token = $this->getAccessToken();
+
+        $auditoriaObj   = new Auditoria(null);
+        $auditoriaObj->agregaAuditoria( 'createShipment', 'Inicio', 'API', "Token: $token - URL: ".$this->createShipmentUrl, null, json_encode($payload, JSON_UNESCAPED_UNICODE) );
+
         $ch = curl_init($this->createShipmentUrl);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
@@ -110,15 +116,22 @@ class FedExChileApi
         if ($raw === false) {
             $err = curl_error($ch);
             curl_close($ch);
-            throw new RuntimeException('Error cURL createShipment: ' . $err);
+            $errorMessage = 'Error cURL createShipment: ' . $err;
+            $auditoriaObj->agregaAuditoria( 'createShipment', 'Respuesta', 'API', "Token: $token - URL: ".$this->createShipmentUrl, 0, $errorMessage );
+            throw new RuntimeException($errorMessage);
         }
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         $data = json_decode($raw, true);
         if ($http >= 400 || $data === null) {
-            throw new RuntimeException('HTTP ' . $http . ' createShipment response: ' . $raw);
+            $exceptionMessage = 'HTTP ' . $http . ' createShipment response: ' . $raw;
+            $auditoriaObj->agregaAuditoria( 'createShipment', 'Respuesta', 'API', "Token: $token - URL: ".$this->createShipmentUrl, 0, $exceptionMessage );
+            throw new RuntimeException($exceptionMessage);
         }
+        $auditoriaObj->agregaAuditoria( 'createShipment', 'Respuesta', 'API', "Token: $token - URL: ".$this->createShipmentUrl, 1, $raw );
+        $auditoriaObj->Close();
+        
         return $data;
     }
 
