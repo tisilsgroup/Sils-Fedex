@@ -16,6 +16,8 @@ Permite automatizar la generación de etiquetas, el almacenamiento de respuestas
 ---
 
 ## 🧾 Versiones
+- 1.1.0 
+**20251126** Se incorpora MasterTrackingNumber al almacenar DocResponseZPL
 - 1.0.0 
 **20251013** Para validaciones finales por parte de Sils Group
 

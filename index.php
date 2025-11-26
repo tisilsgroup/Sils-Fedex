@@ -179,7 +179,7 @@ foreach ($fedexInf as $row) {
                 "docType" => "DELR",
                 "docId"   => $docId
             ]],
-            "customerDocsReference" => $customerDocsReference ?? "510100027"
+            "customerDocsReference" => $docId
         ],
         "clearanceDetail" => [
             "documentContent" => "NON_DOCUMENT"
@@ -325,9 +325,13 @@ function guardarPayload( $row, $payload, $responseMaster) {
                 }
 
                 // Filtramos docResponse SOLO si el labelType es ZPL
-                $docResponseZPL = [];
+                $docResponseMasterTrackingNumber = '';                
+                $docResponseZPL                  = [];
                 if (isset($response['docResponse'])) {
                     foreach ($response['docResponse'] as $doc) {
+                        
+                        $docResponseMasterTrackingNumber = $doc['masterTrackingNumber'] ?? '';
+                        
                         foreach ($doc['contentResponse'] as $content) {
                             if (($content['labelType'] ?? '') === 'ZPL') {
                                 $docResponseZPL[] = [
@@ -348,6 +352,7 @@ function guardarPayload( $row, $payload, $responseMaster) {
 
                                 $fedexRespDocResponseZPL = $fedexObj->saveDocResponseZPL(
                                     $fedexRespMasterId,
+                                    $docResponseMasterTrackingNumber,
                                     $bufferBase64,
                                     $barcode1D,
                                     $barcode2D,
@@ -359,7 +364,7 @@ function guardarPayload( $row, $payload, $responseMaster) {
                                 $result  = $fedexRespDocResponseZPL['resultado'];
                                 $message = $fedexRespDocResponseZPL['mensaje'];
 
-                                $dml = "EXEC fedex.SP_reportDocResponseZPL($fedexRespMasterId, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix)";
+                                $dml = "EXEC fedex.SP_reportDocResponseZPL($fedexRespMasterId, $docResponseMasterTrackingNumber, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix)";
 
                                 $auditoriaObj->agregaAuditoria( 'saveDocResponseZPL', 'Registro de docResponseZPL', 'API', $dml, $result, $message );
                             }

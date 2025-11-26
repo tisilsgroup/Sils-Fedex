@@ -74,11 +74,11 @@ class Info {
     /// Recibe el ID del master insertado
     /// @return array
     function saveDocResponseZPL(
-        $masterId, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix
+        $masterId, $docResponseMasterTrackingNumber, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix
     ) {
 
-        $stmt = $this->conn->prepare("{CALL fedex.SP_reportDocResponseZPL (?, ?, ?, ?, ?, ?, ?)}");
-        $stmt->execute(array( $masterId, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix ));
+        $stmt = $this->conn->prepare("{CALL fedex.SP_reportDocResponseZPL (?, ?, ?, ?, ?, ?, ?, ?)}");
+        $stmt->execute(array( $masterId, $docResponseMasterTrackingNumber, $bufferBase64, $barcode1D, $barcode2D, $locationId, $ursaPrefix, $ursaSufix ));
 
         return $stmt->fetch();
     }
